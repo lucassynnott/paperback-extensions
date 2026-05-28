@@ -16,6 +16,9 @@
     "test": "npm run tsc && npm run lint:check && npm run format:check && npm run bundle",
     "prepare": "husky"
   },
+  "dependencies": {
+    "cheerio": "^1.2.0"
+  },
   "devDependencies": {
     "@paperback/toolchain": "^1.0.0-alpha.74",
     "@paperback/types": "^1.0.0-alpha.74",
@@ -24,8 +27,5 @@
     "oxlint": "^1.62.0",
     "oxlint-tsgolint": "^0.22.1",
     "typescript": "^6.0.3"
-  },
-  "dependencies": {
-    "cheerio": "^1.2.0"
   }
 }

@@ -2,7 +2,7 @@
 
 import { PaperbackInterceptor, type Request, type Response } from "@paperback/types";
 
-export const BASE_URL = "https://readcomicsonline.ru";
+export const BASE_URL = "https://readcomiconline.li";
 
 export class MainInterceptor extends PaperbackInterceptor {
   override async interceptRequest(request: Request): Promise<Request> {

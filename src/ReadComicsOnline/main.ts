@@ -105,7 +105,7 @@ export class ReadComicsOnlineExtension implements ReadComicsOnlineImplementation
     const page = metadata ?? 1;
 
     if (section.id === "latest-releases") {
-      const html = await fetchString(`${BASE_URL}/latest-release?page=${page}`);
+      const html = await fetchString(`${BASE_URL}/ComicList/LatestUpdate?page=${page}`);
       const items = parseListPage(html, "simpleCarouselItem");
       return { items, metadata: items.length === 0 ? undefined : page + 1 };
     }
@@ -125,7 +125,9 @@ export class ReadComicsOnlineExtension implements ReadComicsOnlineImplementation
       return { items, metadata: undefined };
     }
 
-    const html = await fetchString(`${BASE_URL}/`);
+    const html = await fetchString(
+      section.id === "most-viewed" ? `${BASE_URL}/ComicList/MostPopular?page=1` : `${BASE_URL}/`,
+    );
     const type = section.id === "most-viewed" ? "featuredCarouselItem" : "prominentCarouselItem";
     const items = parseHomeDiscover(html, section.id, type);
     return { items };
@@ -146,7 +148,7 @@ export class ReadComicsOnlineExtension implements ReadComicsOnlineImplementation
 
     if (publisherId) {
       const page = metadata ?? 1;
-      const url = `${BASE_URL}/comic-list/category/${publisherId}?page=${page}`;
+      const url = `${BASE_URL}/ComicList/Publisher/${publisherId}?page=${page}`;
       const html = await fetchString(url);
       let items = parseCategoryPage(html);
       if (term) {
@@ -157,24 +159,25 @@ export class ReadComicsOnlineExtension implements ReadComicsOnlineImplementation
     }
 
     if (!term) return { items: [] };
-    const url = `${BASE_URL}/search?query=${encodeURIComponent(term)}`;
+    const url = `${BASE_URL}/AdvanceSearch?comicName=${encodeURIComponent(term)}`;
     const body = await fetchString(url);
     return { items: parseSearchSuggestions(body) };
   }
 
   async getMangaDetails(mangaId: string): Promise<SourceManga> {
-    const html = await fetchString(`${BASE_URL}/comic/${mangaId}`);
+    const html = await fetchString(`${BASE_URL}/Comic/${mangaId}`);
     return parseMangaDetails(html, mangaId);
   }
 
   async getChapters(sourceManga: SourceManga, sinceDate?: Date): Promise<Chapter[]> {
     void sinceDate;
-    const html = await fetchString(`${BASE_URL}/comic/${sourceManga.mangaId}`);
+    const html = await fetchString(`${BASE_URL}/Comic/${sourceManga.mangaId}`);
     return parseChapters(html, sourceManga);
   }
 
   async getChapterDetails(chapter: Chapter): Promise<ChapterDetails> {
-    const url = `${BASE_URL}/comic/${chapter.sourceManga.mangaId}/${chapter.chapterId}`;
+    const separator = chapter.chapterId.includes("?") ? "&" : "?";
+    const url = `${BASE_URL}/Comic/${chapter.sourceManga.mangaId}/${chapter.chapterId}${separator}quality=hq`;
     const html = await fetchString(url);
     const pages = parseChapterPages(html);
     return {
