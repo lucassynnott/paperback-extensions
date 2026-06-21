@@ -44,7 +44,7 @@ function decodedBase64(value: string): string {
 
 function obfuscateImagePath(url: string): string {
   return url
-    .replace(/(?:Q3__swREYT_|cK__Od24cS_)/g, "d")
+    .replace(/(?:Q3__swREYT_|cK__Od24cS_|Ah__cKx0Wv_)/g, "d")
     .replace(/b/g, "pw_.g28x")
     .replace(/h/g, "d2pr.x_27");
 }
