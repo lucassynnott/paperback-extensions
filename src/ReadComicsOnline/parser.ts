@@ -76,6 +76,26 @@ export function parseHomeDiscover(
 
   const $ = cheerio.load(html);
   const items: DiscoverSectionItem[] = [];
+
+  const listIndex = sectionId === "hot-updates" ? 0 : 3;
+  const list = $(".item-list").eq(listIndex);
+  if (list.length) {
+    list.find(".list, .item").each((_, el) => {
+      const node = $(el);
+      const anchor = node.find("a[href*='/Comic/'], a[href*='/comic/']").last();
+      const href = anchor.attr("href") ?? "";
+      const mangaId = slugFromUrl(href);
+      if (!mangaId) return;
+      const title =
+        node.find(".title, h3, h4").first().text().trim() ||
+        anchor.text().trim() ||
+        anchor.attr("title") ||
+        "Unknown Title";
+      const imageUrl = absoluteUrl(node.find("img").first().attr("src") ?? "");
+      items.push({ mangaId, title, imageUrl, type });
+    });
+  }
+
   $(".rightBox li a[href*='/Comic/'], li.schedule-item a[href*='/comic/']").each((_, el) => {
     const anchor = $(el);
     const href = anchor.attr("href") ?? "";
@@ -183,7 +203,17 @@ export function parseMangaDetails(html: string, mangaId: string): SourceManga {
       .trim()
       .replace(/[:\s]+$/, "")
       .toLowerCase();
-    const value = $(el).clone().children("span").remove().end().text().trim();
+    if (!key || key === "bookmark") return;
+    const value = $(el)
+      .clone()
+      .find("script")
+      .remove()
+      .end()
+      .children("span")
+      .remove()
+      .end()
+      .text()
+      .trim();
     if (key) meta[key] = value;
   });
 

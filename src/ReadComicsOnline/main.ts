@@ -31,18 +31,18 @@ import {
 } from "./parser";
 
 const PUBLISHERS: { id: string; title: string }[] = [
-  { id: "dc-comics", title: "DC Comics" },
-  { id: "marvel-comics", title: "Marvel Comics" },
-  { id: "image-comics", title: "Image Comics" },
-  { id: "dark-horse", title: "Dark Horse" },
-  { id: "idw", title: "IDW" },
-  { id: "boom-studios", title: "Boom Studios" },
-  { id: "dynamite", title: "Dynamite" },
-  { id: "valiant", title: "Valiant" },
-  { id: "vertigo", title: "Vertigo" },
-  { id: "archie", title: "Archie" },
-  { id: "oni-press", title: "Oni Press" },
-  { id: "aftershock-comics", title: "Aftershock Comics" },
+  { id: "DC-Comics", title: "DC Comics" },
+  { id: "Marvel", title: "Marvel Comics" },
+  { id: "Image-Comics", title: "Image Comics" },
+  { id: "Dark-Horse-Comics", title: "Dark Horse" },
+  { id: "IDW-Publishing", title: "IDW" },
+  { id: "Boom-Studios", title: "Boom Studios" },
+  { id: "Dynamite", title: "Dynamite" },
+  { id: "Valiant", title: "Valiant" },
+  { id: "Vertigo", title: "Vertigo" },
+  { id: "Archie", title: "Archie" },
+  { id: "Oni-Press", title: "Oni Press" },
+  { id: "Aftershock-Comics", title: "Aftershock Comics" },
 ];
 
 type ReadComicsOnlineImplementation = Extension &
@@ -105,7 +105,7 @@ export class ReadComicsOnlineExtension implements ReadComicsOnlineImplementation
     const page = metadata ?? 1;
 
     if (section.id === "latest-releases") {
-      const html = await fetchString(`${BASE_URL}/ComicList/LatestUpdate?page=${page}`);
+      const html = await fetchString(`${BASE_URL}/Status/Ongoing/LatestUpdate?page=${page}`);
       const items = parseListPage(html, "simpleCarouselItem");
       return { items, metadata: items.length === 0 ? undefined : page + 1 };
     }
@@ -148,7 +148,7 @@ export class ReadComicsOnlineExtension implements ReadComicsOnlineImplementation
 
     if (publisherId) {
       const page = metadata ?? 1;
-      const url = `${BASE_URL}/ComicList/Publisher/${publisherId}?page=${page}`;
+      const url = `${BASE_URL}/Publisher/${publisherId}/LatestUpdate?page=${page}`;
       const html = await fetchString(url);
       let items = parseCategoryPage(html);
       if (term) {
