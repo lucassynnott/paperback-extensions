@@ -1,0 +1,81 @@
+{
+  "buildTime": "2026-06-22T10:03:39.739Z",
+  "builtWith": {
+    "toolchain": "1.0.0-alpha.74",
+    "types": "1.0.0-alpha.74"
+  },
+  "repository": {
+    "name": "Template Extensions (0.9)",
+    "description": "Paperback extensions designed as templates to help developers get started quickly. Maintained by Inkdex."
+  },
+  "sources": [
+    {
+      "name": "Batcave",
+      "description": "Paperback extension for batcave.biz.",
+      "version": "1.0.0",
+      "icon": "icon.png",
+      "language": "en",
+      "contentRating": "SAFE",
+      "badges": [],
+      "capabilities": 85,
+      "developers": [
+        {
+          "name": "lucas"
+        }
+      ],
+      "id": "Batcave"
+    },
+    {
+      "name": "Content Template",
+      "description": "Template that shows the functionality of content providing extensions.",
+      "version": "1.0.0-alpha.3",
+      "icon": "icon.png",
+      "language": "en",
+      "contentRating": "SAFE",
+      "capabilities": 101,
+      "badges": [],
+      "developers": [
+        {
+          "name": "Celarye",
+          "website": "https://celarye.dev",
+          "github": "https://github.com/Celarye"
+        }
+      ],
+      "id": "ContentTemplate"
+    },
+    {
+      "name": "Read Comics Online",
+      "description": "Paperback extension for readcomiconline.li.",
+      "version": "1.0.8",
+      "icon": "icon.png",
+      "language": "en",
+      "contentRating": "SAFE",
+      "capabilities": 69,
+      "badges": [],
+      "developers": [
+        {
+          "name": "lucas",
+          "website": "",
+          "github": ""
+        }
+      ],
+      "id": "ReadComicsOnline"
+    },
+    {
+      "name": "Read Comics Online RU",
+      "description": "Paperback extension for readcomicsonline.ru.",
+      "version": "1.0.12",
+      "icon": "icon.png",
+      "language": "en",
+      "contentRating": "SAFE",
+      "badges": [],
+      "capabilities": 85,
+      "developers": [
+        {
+          "name": "lucas"
+        }
+      ],
+      "id": "ReadComicsOnlineRu"
+    }
+  ]
+}
