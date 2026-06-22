@@ -92,6 +92,7 @@ export class ReadComicsOnlineRuExtension implements ReadComicsOnlineRuImplementa
     const title = $("h1").first().text().trim() || mangaId;
     const thumbnailUrl = imageUrl(
       pickImageAttr($('img.object-cover, img[class*="object-cover"]').last()),
+      coverUrlForManga(mangaId),
     );
     const synopsis =
       $('p[class*="leading-relaxed"][class*="text-slate-300"]').text().trim() || "No synopsis.";
@@ -166,6 +167,11 @@ export class ReadComicsOnlineRuExtension implements ReadComicsOnlineRuImplementa
       const pageUrl = absoluteUrl(raw);
       if (isValidHttpUrl(pageUrl)) pages.push(pageUrl);
     });
+    $("#all img, div#all img, .page-chapter img, img.single-page").each((_, element) => {
+      const raw = pickImageAttr($(element));
+      const pageUrl = absoluteUrl(raw);
+      if (isValidHttpUrl(pageUrl)) pages.push(pageUrl);
+    });
     $("#reader-all source[srcset], #reader-all img[srcset], #reader-all img[data-srcset]").each(
       (_, element) => {
         const raw =
@@ -174,8 +180,10 @@ export class ReadComicsOnlineRuExtension implements ReadComicsOnlineRuImplementa
         if (isValidHttpUrl(pageUrl)) pages.push(pageUrl);
       },
     );
-    if (!pages.length) pages.push(FALLBACK_IMAGE_URL);
-    return { id: chapter.chapterId, mangaId: chapter.sourceManga.mangaId, pages };
+    pages.push(...parseScriptPageUrls($.html(), chapter.sourceManga.mangaId, chapter.chapterId));
+    const uniquePages = [...new Set(pages)];
+    if (!uniquePages.length) throw new Error("No readable chapter pages found");
+    return { id: chapter.chapterId, mangaId: chapter.sourceManga.mangaId, pages: uniquePages };
   }
 
   getMangaShareUrl(mangaId: string): string {
@@ -234,7 +242,7 @@ function parseCatalogueItems($: CheerioAPI): CatalogueParseResult {
       type: "simpleCarouselItem",
       mangaId,
       title,
-      imageUrl: imageUrl(pickImageAttr(card.find("img").first())),
+      imageUrl: imageUrl(pickImageAttr(card.find("img").first()), coverUrlForManga(mangaId)),
     });
   });
 
@@ -286,9 +294,29 @@ function absoluteUrl(raw: string): string {
   return `${BASE_URL}/${trimmed}`;
 }
 
-function imageUrl(raw: string): string {
+function imageUrl(raw: string, fallback = FALLBACK_IMAGE_URL): string {
   const resolved = absoluteUrl(raw);
-  return isValidHttpUrl(resolved) ? resolved : FALLBACK_IMAGE_URL;
+  return isValidHttpUrl(resolved) ? resolved : fallback;
+}
+
+function coverUrlForManga(mangaId: string): string {
+  return `${BASE_URL}/uploads/manga/${mangaId}/cover/cover_250x350.jpg`;
+}
+
+function parseScriptPageUrls(html: string, mangaId: string, chapterId: string): string[] {
+  const pages: string[] = [];
+  const chapterSlug = chapterId.replace(/^\/+/, "").split("/")[0] ?? "";
+  const pageScript = html.match(/var\s+pages\s*=\s*(\[[\s\S]*?\])\s*;/)?.[1] ?? "";
+  for (const match of pageScript.matchAll(/"image"\s*:\s*"([^"]+)"/g)) {
+    const rawImage = match[1]?.trim();
+    if (!rawImage) continue;
+    const image = rawImage.endsWith(".jpg") ? rawImage : `${rawImage}.jpg`;
+    const pageUrl = /^https?:\/\//i.test(image)
+      ? image
+      : `${BASE_URL}/uploads/manga/${mangaId}/chapters/${chapterSlug}/${image}`;
+    if (isValidHttpUrl(pageUrl)) pages.push(pageUrl);
+  }
+  return pages;
 }
 
 function isValidHttpUrl(value: string): boolean {
