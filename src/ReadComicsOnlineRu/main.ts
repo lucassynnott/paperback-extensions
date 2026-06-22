@@ -25,12 +25,14 @@ import {
 } from "@paperback/types";
 import * as cheerio from "cheerio";
 import type { CheerioAPI } from "cheerio";
+import type { AnyNode } from "domhandler";
 
 import { ReadComicsOnlineRuInterceptor } from "./interceptors";
 import type { PageMetadata } from "./model";
 
 const BASE_URL = "https://readcomicsonline.ru";
-const FALLBACK_IMAGE_URL = `${BASE_URL}/favicon.ico`;
+const FALLBACK_IMAGE_URL =
+  "https://lucassynnott.github.io/paperback-extensions/0.9/stable/ReadComicsOnlineRu/icon.png";
 
 type ReadComicsOnlineRuImplementation = Extension &
   SearchResultsProviding &
@@ -89,7 +91,7 @@ export class ReadComicsOnlineRuExtension implements ReadComicsOnlineRuImplementa
     const $ = await this.fetchCheerio({ url: `${BASE_URL}/comic/${mangaId}`, method: "GET" });
     const title = $("h1").first().text().trim() || mangaId;
     const thumbnailUrl = imageUrl(
-      $('img.object-cover, img[class*="object-cover"]').last().attr("src") ?? "",
+      pickImageAttr($('img.object-cover, img[class*="object-cover"]').last()),
     );
     const synopsis =
       $('p[class*="leading-relaxed"][class*="text-slate-300"]').text().trim() || "No synopsis.";
@@ -159,8 +161,8 @@ export class ReadComicsOnlineRuExtension implements ReadComicsOnlineRuImplementa
       method: "GET",
     });
     const pages: string[] = [];
-    $("#reader-all img[src], #reader-all img[data-src]").each((_, element) => {
-      const raw = ($(element).attr("src") ?? $(element).attr("data-src") ?? "").trim();
+    $("#reader-all img").each((_, element) => {
+      const raw = pickImageAttr($(element));
       const pageUrl = absoluteUrl(raw);
       if (isValidHttpUrl(pageUrl)) pages.push(pageUrl);
     });
@@ -223,9 +225,7 @@ function parseCatalogueItems($: CheerioAPI): CatalogueParseResult {
       type: "simpleCarouselItem",
       mangaId,
       title,
-      imageUrl: imageUrl(
-        card.find("img").first().attr("src") ?? card.find("img").first().attr("data-src") ?? "",
-      ),
+      imageUrl: imageUrl(pickImageAttr(card.find("img").first())),
     });
   });
 
@@ -247,12 +247,24 @@ function detailValues($: CheerioAPI, label: string): string[] {
   return values;
 }
 
+function pickImageAttr(image: cheerio.Cheerio<AnyNode>): string {
+  return (
+    image.attr("data-src") ??
+    image.attr("data-original") ??
+    image.attr("data-lazy-src") ??
+    image.attr("src") ??
+    ""
+  ).trim();
+}
+
 function absoluteUrl(raw: string): string {
   const trimmed = raw.trim();
   if (!trimmed) return "";
   if (trimmed.startsWith("//")) return `https:${trimmed}`;
   if (/^https?:\/\//i.test(trimmed)) return trimmed;
+  if (/^[a-z][a-z0-9+.-]*:/i.test(trimmed)) return "";
   if (trimmed.startsWith("/")) return `${BASE_URL}${trimmed}`;
+  if (/\s/.test(trimmed)) return "";
   return `${BASE_URL}/${trimmed}`;
 }
 
