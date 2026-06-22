@@ -370,7 +370,12 @@ export function parseChapterPages(html: string): string[] {
           "g",
         );
         for (const match of script.matchAll(pthRe))
-          pages.push(decodeReadComicImageUrl(obfuscateImagePath(match[1]!), targetCall.imageHost));
+          pages.push(
+            decodeReadComicImageUrl(
+              obfuscateImagePath(match[1]!),
+              targetCall.imageHost || undefined,
+            ),
+          );
       }
     }
   }
