@@ -49,7 +49,7 @@ function obfuscateImagePath(url: string): string {
     .replace(/h/g, "d2pr.x_27");
 }
 
-function decodeReadComicImageUrl(url: string): string {
+function decodeReadComicImageUrl(url: string, imageHost = "https://2.bp.blogspot.com"): string {
   let working = url.replace(/pw_\.g28x/g, "b").replace(/d2pr\.x_27/g, "h");
   if (working.startsWith("https")) return working;
 
@@ -64,7 +64,7 @@ function decodeReadComicImageUrl(url: string): string {
   let decoded = decodedBase64(step2);
   decoded = decoded.substring(0, 13) + decoded.substring(17);
   decoded = decoded.substring(0, decoded.length - 2) + (working.includes("=s0") ? "=s0" : "=s1600");
-  return `https://2.bp.blogspot.com/${decoded}${query}`;
+  return `${imageHost}/${decoded}${query}`;
 }
 
 export function parseHomeDiscover(
@@ -357,16 +357,20 @@ export function parseChapterPages(html: string): string[] {
       .first()
       .html();
     if (script) {
-      const calledVars = [...script.matchAll(/func\w+\(([_c]\w+),\s*''\)/g)].map((m) => m[1]);
-      const targetVar = calledVars.find((name) => name?.startsWith("_"));
-      if (targetVar) {
+      const calledVars = [...script.matchAll(/func\w+\(([_c]\w+),\s*'([^']*)'\)/g)].map((m) => ({
+        name: m[1],
+        imageHost: m[2],
+      }));
+      const targetCall = calledVars.find((calledVar) => calledVar.name?.startsWith("_"));
+      if (targetCall?.name) {
+        const targetVar = targetCall.name;
         const escapedVar = targetVar.replace(/[$()*+.?[\\\]^{|}]/g, "\\$&");
         const pthRe = new RegExp(
           `pth\\s*=\\s*'([^']+)'[\\s\\S]*?${escapedVar}\\.push\\(pth\\)`,
           "g",
         );
         for (const match of script.matchAll(pthRe))
-          pages.push(decodeReadComicImageUrl(obfuscateImagePath(match[1]!)));
+          pages.push(decodeReadComicImageUrl(obfuscateImagePath(match[1]!), targetCall.imageHost));
       }
     }
   }
