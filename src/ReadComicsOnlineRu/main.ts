@@ -390,8 +390,10 @@ function parseLooseImageUrls(html: string): string[] {
 
 function isValidReaderImageUrl(value: string): boolean {
   if (!isValidHttpUrl(value)) return false;
-  if (!/\.(?:jpe?g|png|webp)(?:\?|$)/i.test(value)) return false;
   const lowered = value.toLowerCase();
+  const hasImageExtension = /\.(?:jpe?g|png|webp)(?:\?|$)/i.test(value);
+  const isReaderUpload = /\/uploads\/manga\/[^\s"'<>]+\/chapters\//i.test(value);
+  if (!hasImageExtension && !isReaderUpload) return false;
   return ![
     "/cover/",
     "/static/icon",
@@ -499,12 +501,8 @@ function cloudflareSignal(html: string): boolean {
 }
 
 function isValidHttpUrl(value: string): boolean {
-  try {
-    const url = new URL(value);
-    return url.protocol === "http:" || url.protocol === "https:";
-  } catch {
-    return false;
-  }
+  const trimmed = value.trim();
+  return /^https?:\/\/[^\s"'<>]+$/i.test(trimmed);
 }
 
 function mangaIdFromRuHref(href: string): string {
