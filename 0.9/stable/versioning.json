@@ -1,5 +1,5 @@
 {
-  "buildTime": "2026-06-22T00:36:40.966Z",
+  "buildTime": "2026-06-22T00:48:34.855Z",
   "builtWith": {
     "toolchain": "1.0.0-alpha.74",
     "types": "1.0.0-alpha.74"
@@ -9,6 +9,22 @@
     "description": "Paperback extensions designed as templates to help developers get started quickly. Maintained by Inkdex."
   },
   "sources": [
+    {
+      "name": "Batcave",
+      "description": "Paperback extension for batcave.biz.",
+      "version": "1.0.0",
+      "icon": "icon.png",
+      "language": "en",
+      "contentRating": "SAFE",
+      "badges": [],
+      "capabilities": 85,
+      "developers": [
+        {
+          "name": "lucas"
+        }
+      ],
+      "id": "Batcave"
+    },
     {
       "name": "Content Template",
       "description": "Template that shows the functionality of content providing extensions.",
@@ -44,6 +60,22 @@
         }
       ],
       "id": "ReadComicsOnline"
+    },
+    {
+      "name": "Read Comics Online RU",
+      "description": "Paperback extension for readcomicsonline.ru.",
+      "version": "1.0.0",
+      "icon": "icon.png",
+      "language": "en",
+      "contentRating": "SAFE",
+      "badges": [],
+      "capabilities": 85,
+      "developers": [
+        {
+          "name": "lucas"
+        }
+      ],
+      "id": "ReadComicsOnlineRu"
     }
   ]
 }
