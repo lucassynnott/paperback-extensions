@@ -52,27 +52,15 @@ export class ReadComicsOnlineRuExtension implements ReadComicsOnlineRuImplementa
   }
 
   async getDiscoverSections(): Promise<DiscoverSection[]> {
-    return [
-      { id: "popular", title: "Popular", type: DiscoverSectionType.featured },
-      { id: "hot", title: "Hot Comic Updates", type: DiscoverSectionType.simpleCarousel },
-      { id: "latest", title: "Latest Comic Updates", type: DiscoverSectionType.simpleCarousel },
-    ];
+    return [{ id: "catalogue", title: "Catalogue", type: DiscoverSectionType.simpleCarousel }];
   }
 
   async getDiscoverSectionItems(
     section: DiscoverSection,
     metadata: PageMetadata | undefined,
   ): Promise<PagedResults<DiscoverSectionItem>> {
-    switch (section.id) {
-      case "popular":
-        return this.getPopularSectionItems();
-      case "hot":
-        return this.getHotSectionItems(metadata);
-      case "latest":
-        return this.getLatestSectionItems(metadata);
-      default:
-        return { items: [] };
-    }
+    if (section.id !== "catalogue") return { items: [] };
+    return this.getCatalogueSectionItems(metadata);
   }
 
   async getSearchResults(
@@ -80,54 +68,47 @@ export class ReadComicsOnlineRuExtension implements ReadComicsOnlineRuImplementa
     metadata?: PageMetadata,
   ): Promise<PagedResults<SearchResultItem>> {
     const page = metadata?.page ?? 1;
-    const [, data] = await Application.scheduleRequest({
-      url: `${BASE_URL}/search?query=${encodeURIComponent(query.title.trim())}`,
-      method: "GET",
-    });
-    const responseText = Application.arrayBufferToUTF8String(data);
-    let allItems: SearchResultItem[] = [];
-    try {
-      const parsed = JSON.parse(responseText) as {
-        suggestions?: { value: string; data: string }[];
-      };
-      allItems = (parsed.suggestions ?? []).map((item) => ({
-        mangaId: item.data,
-        title: item.value,
-        imageUrl: `${BASE_URL}/uploads/manga/${item.data}/cover/cover_250x350.jpg`,
-      }));
-    } catch {
-      allItems = this.parseMediaSearchResults(cheerio.load(responseText));
-    }
-    const start = (page - 1) * 10;
-    const items = allItems.slice(start, start + 10);
-    return { items, metadata: start + 10 < allItems.length ? { page: page + 1 } : undefined };
+    const keyword = query.title.trim();
+    const url = keyword
+      ? `${BASE_URL}/comic-list?keyword=${encodeURIComponent(keyword)}&page=${page}`
+      : `${BASE_URL}/comic-list?sort=az&page=${page}`;
+    const $ = await this.fetchCheerio({ url, method: "GET" });
+    const parsed = parseCatalogueItems($);
+    return {
+      items: parsed.items.map((item) => ({
+        mangaId: item.mangaId,
+        title: item.title,
+        imageUrl: item.imageUrl,
+      })),
+      metadata: parsed.hasNextPage ? { page: page + 1 } : undefined,
+    };
   }
 
   async getMangaDetails(mangaId: string): Promise<SourceManga> {
     const $ = await this.fetchCheerio({ url: `${BASE_URL}/comic/${mangaId}`, method: "GET" });
-    const title = $("h2.listmanga-header").first().text().trim() || mangaId;
-    const rawImage = $(".boxed img").attr("src") ?? "";
-    const thumbnailUrl = absoluteUrl(rawImage);
-    const synopsis = $(".manga.well p").text().trim() || "No synopsis.";
-    const author = $("dt:contains('Author') + dd a").text().trim() || undefined;
-    const ratingMatch = $(".rating")
-      .text()
-      .match(/Average\s*([\d.]+)/);
-    const rating = ratingMatch?.[1] ? parseFloat(ratingMatch[1]) * 20 : undefined;
-    const statusText = $("dt:contains('Status') + dd span").text().toLowerCase();
+    const title = $("h1").first().text().trim() || mangaId;
+    const thumbnailUrl = absoluteUrl(
+      $('img.object-cover, img[class*="object-cover"]').last().attr("src") ?? "",
+    );
+    const synopsis =
+      $('p[class*="leading-relaxed"][class*="text-slate-300"]').text().trim() || "No synopsis.";
+    const author = detailValues($, "Author:").join(", ") || undefined;
+    const statusText = $('span[class*="rounded-full"][class*="text-xs"]').text().toLowerCase();
     const status = statusText.includes("ongoing")
       ? "Ongoing"
       : statusText.includes("complete")
         ? "Completed"
         : "Unknown";
-    const tags: TagSection[] = [];
+
     const genres: string[] = [];
-    $("dd.tag-links a").each((_, element) => {
+    $('div:has(> span):contains("Genres:") a').each((_, element) => {
       const genre = $(element).text().trim();
       if (genre) genres.push(genre);
     });
-    if (genres.length)
-      tags.push({ id: "genres", title: "Tags", tags: genres.map((genre) => tagFromTitle(genre)) });
+    const tagGroups: TagSection[] = genres.length
+      ? [{ id: "genres", title: "Genres", tags: genres.map((genre) => tagFromTitle(genre)) }]
+      : [];
+
     return {
       mangaId,
       mangaInfo: {
@@ -136,10 +117,9 @@ export class ReadComicsOnlineRuExtension implements ReadComicsOnlineRuImplementa
         thumbnailUrl,
         synopsis,
         author,
-        rating,
         contentRating: ContentRating.EVERYONE,
         status,
-        tagGroups: tags,
+        tagGroups,
         artworkUrls: thumbnailUrl ? [thumbnailUrl] : [],
         shareUrl: `${BASE_URL}/comic/${mangaId}`,
       },
@@ -152,12 +132,14 @@ export class ReadComicsOnlineRuExtension implements ReadComicsOnlineRuImplementa
       method: "GET",
     });
     const chapters: Chapter[] = [];
-    $(".chapters li").each((_, element) => {
-      const chapterElement = $(element);
-      const link = chapterElement.find("h5.chapter-title-rtl a");
-      const title = link.text().trim();
+    $('section.mt-8 a[href*="/comic/"]').each((_, element) => {
+      const link = $(element);
+      const title = link.find("span").first().text().trim() || link.text().trim();
       const href = link.attr("href") ?? "";
-      const chapterId = href.replace(/^https?:\/\/readcomicsonline\.ru\/comic\/[^/]+/g, "").trim();
+      const chapterId = href
+        .replace(/^https?:\/\/readcomicsonline\.ru\/comic\/[^/]+/g, "")
+        .replace(/^\/comic\/[^/]+/g, "")
+        .trim();
       if (!chapterId) return;
       chapters.push({
         chapterId,
@@ -165,12 +147,9 @@ export class ReadComicsOnlineRuExtension implements ReadComicsOnlineRuImplementa
         langCode: "EN",
         chapNum: chapterNumberFromTitle(title),
         title,
-        publishDate: parseRuDate(chapterElement.find(".date-chapter-title-rtl").text().trim()),
       });
     });
-    return chapters.sort(
-      (a, b) => (a.publishDate?.getTime() ?? 0) - (b.publishDate?.getTime() ?? 0),
-    );
+    return chapters.reverse();
   }
 
   async getChapterDetails(chapter: Chapter): Promise<ChapterDetails> {
@@ -179,14 +158,10 @@ export class ReadComicsOnlineRuExtension implements ReadComicsOnlineRuImplementa
       method: "GET",
     });
     const pages: string[] = [];
-    $("#all img").each((_, element) => {
-      const dataSrc = $(element).attr("data-src")?.trim();
-      if (dataSrc) pages.push(absoluteUrl(dataSrc));
+    $("#reader-all img[src], #reader-all img[data-src]").each((_, element) => {
+      const raw = ($(element).attr("src") ?? $(element).attr("data-src") ?? "").trim();
+      if (raw) pages.push(absoluteUrl(raw));
     });
-    if (!pages.length) {
-      const single = $("#ppp img").attr("src")?.trim();
-      if (single) pages.push(absoluteUrl(single));
-    }
     return { id: chapter.chapterId, mangaId: chapter.sourceManga.mangaId, pages };
   }
 
@@ -203,80 +178,16 @@ export class ReadComicsOnlineRuExtension implements ReadComicsOnlineRuImplementa
     }
   }
 
-  private async getHotSectionItems(
-    _metadata?: PageMetadata,
+  private async getCatalogueSectionItems(
+    metadata?: PageMetadata,
   ): Promise<PagedResults<DiscoverSectionItem>> {
-    const $ = await this.fetchCheerio({ url: BASE_URL, method: "GET" });
-    return { items: parseScheduleItems($) };
-  }
-
-  private async getPopularSectionItems(): Promise<PagedResults<DiscoverSectionItem>> {
-    const $ = await this.fetchCheerio({ url: BASE_URL, method: "GET" });
-    const items: DiscoverSectionItem[] = [];
-    $(".list-group-item").each((_, element) => {
-      const unit = $(element);
-      const link = unit.find(".chart-title");
-      const mangaId = mangaIdFromRuHref(link.attr("href") ?? "");
-      const title = link.text().trim();
-      if (!mangaId || !title) return;
-      items.push({
-        type: "featuredCarouselItem",
-        mangaId,
-        imageUrl: absoluteUrl(
-          (unit.find("img").attr("src") ?? "").replace("cover_thumb.jpg", "cover_250x350.jpg"),
-        ),
-        title,
-        supertitle: unit.find(".fa-eye").parent().text().trim() || undefined,
-      });
+    const page = metadata?.page ?? 1;
+    const $ = await this.fetchCheerio({
+      url: `${BASE_URL}/comic-list?sort=az&page=${page}`,
+      method: "GET",
     });
-    return { items };
-  }
-
-  private async getLatestSectionItems(
-    _metadata?: PageMetadata,
-  ): Promise<PagedResults<DiscoverSectionItem>> {
-    const $ = await this.fetchCheerio({ url: BASE_URL, method: "GET" });
-    const items: DiscoverSectionItem[] = [];
-    $(".col-sm-6 .media").each((_, element) => {
-      const unit = $(element);
-      const link = unit.find(".media-heading a");
-      const mangaId = mangaIdFromRuHref(link.attr("href") ?? "");
-      const title = link.text().trim();
-      if (!mangaId || !title) return;
-      items.push({
-        type: "simpleCarouselItem",
-        mangaId,
-        imageUrl: absoluteUrl(
-          (unit.find(".media-left img").attr("src") ?? "").replace(
-            "cover_thumb.jpg",
-            "cover_250x350.jpg",
-          ),
-        ),
-        title,
-        subtitle:
-          unit.find(".media-body div a[href*='/comic/']").first().text().trim() || undefined,
-      });
-    });
-    return { items };
-  }
-
-  private parseMediaSearchResults($: CheerioAPI): SearchResultItem[] {
-    const items: SearchResultItem[] = [];
-    $(".media").each((_, element) => {
-      const unit = $(element);
-      const link = unit.find(".media-heading a");
-      const mangaId = mangaIdFromRuHref(link.attr("href") ?? "");
-      const title = link.text().trim();
-      if (!mangaId || !title) return;
-      items.push({
-        mangaId,
-        title,
-        imageUrl: absoluteUrl(unit.find(".media-left img").attr("src") ?? ""),
-        subtitle:
-          unit.find(".media-body div a[href*='/comic/']").first().text().trim() || undefined,
-      });
-    });
-    return items;
+    const parsed = parseCatalogueItems($);
+    return { items: parsed.items, metadata: parsed.hasNextPage ? { page: page + 1 } : undefined };
   }
 
   private async fetchCheerio(request: Request): Promise<CheerioAPI> {
@@ -286,23 +197,50 @@ export class ReadComicsOnlineRuExtension implements ReadComicsOnlineRuImplementa
   }
 }
 
-function parseScheduleItems($: CheerioAPI): DiscoverSectionItem[] {
-  const items: DiscoverSectionItem[] = [];
-  $("#schedule .schedule-item").each((_, element) => {
-    const unit = $(element);
-    const link = unit.find(".schedule-name a");
+interface CatalogueParseResult {
+  items: SimpleCatalogueItem[];
+  hasNextPage: boolean;
+}
+
+interface SimpleCatalogueItem {
+  type: "simpleCarouselItem";
+  mangaId: string;
+  imageUrl: string;
+  title: string;
+}
+
+function parseCatalogueItems($: CheerioAPI): CatalogueParseResult {
+  const items: SimpleCatalogueItem[] = [];
+  $('div.space-y-2.p-3, div[class="space-y-2 p-3"]').each((_, element) => {
+    const card = $(element);
+    const link = card.find('a[href*="/comic/"]').first();
     const mangaId = mangaIdFromRuHref(link.attr("href") ?? "");
     const title = link.text().trim();
     if (!mangaId || !title) return;
     items.push({
       type: "simpleCarouselItem",
       mangaId,
-      imageUrl: absoluteUrl(unit.find(".schedule-avatar img").attr("src") ?? ""),
       title,
-      subtitle: unit.find(".schedule-date a").text().trim() || undefined,
+      imageUrl: absoluteUrl(card.find("img").first().attr("src") ?? ""),
     });
   });
-  return items;
+
+  const currentPage = parseInt($('span[class*="inline-flex"]').first().text()) || 1;
+  const hasNextPage =
+    $('span[class*="inline-flex"] a').filter((_, element) => {
+      const page = parseInt($(element).text());
+      return !isNaN(page) && page > currentPage;
+    }).length > 0;
+  return { items, hasNextPage };
+}
+
+function detailValues($: CheerioAPI, label: string): string[] {
+  const values: string[] = [];
+  $(`div:has(> span):contains("${label}") a`).each((_, element) => {
+    const value = $(element).text().trim();
+    if (value) values.push(value);
+  });
+  return values;
 }
 
 function absoluteUrl(raw: string): string {
@@ -328,12 +266,6 @@ function chapterNumberFromTitle(title: string): number {
   if (regularMatch?.[1]) return parseFloat(regularMatch[1]);
   const annualMatch = title.match(/#(?:-\s*)?Annual\s+(\d+)/i);
   return annualMatch?.[1] ? parseFloat(annualMatch[1]) : 0;
-}
-
-function parseRuDate(value: string): Date | undefined {
-  if (!value) return undefined;
-  const parsed = new Date(value);
-  return isNaN(parsed.getTime()) ? undefined : parsed;
 }
 
 export const ReadComicsOnlineRu = new ReadComicsOnlineRuExtension();
