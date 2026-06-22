@@ -32,7 +32,7 @@ import type { PageMetadata } from "./model";
 
 const BASE_URL = "https://readcomicsonline.ru";
 const FALLBACK_IMAGE_URL =
-  "https://lucassynnott.github.io/paperback-extensions/0.9/stable/ReadComicsOnlineRu/icon.png";
+  "https://lucassynnott.github.io/paperback-extensions/0.9/stable/ReadComicsOnlineRu/static/icon.png";
 
 type ReadComicsOnlineRuImplementation = Extension &
   SearchResultsProviding &
@@ -166,6 +166,15 @@ export class ReadComicsOnlineRuExtension implements ReadComicsOnlineRuImplementa
       const pageUrl = absoluteUrl(raw);
       if (isValidHttpUrl(pageUrl)) pages.push(pageUrl);
     });
+    $("#reader-all source[srcset], #reader-all img[srcset], #reader-all img[data-srcset]").each(
+      (_, element) => {
+        const raw =
+          pickSrcsetUrl($(element).attr("srcset") ?? $(element).attr("data-srcset") ?? "") ?? "";
+        const pageUrl = absoluteUrl(raw);
+        if (isValidHttpUrl(pageUrl)) pages.push(pageUrl);
+      },
+    );
+    if (!pages.length) pages.push(FALLBACK_IMAGE_URL);
     return { id: chapter.chapterId, mangaId: chapter.sourceManga.mangaId, pages };
   }
 
@@ -252,9 +261,18 @@ function pickImageAttr(image: cheerio.Cheerio<AnyNode>): string {
     image.attr("data-src") ??
     image.attr("data-original") ??
     image.attr("data-lazy-src") ??
+    pickSrcsetUrl(image.attr("data-srcset") ?? image.attr("srcset") ?? "") ??
     image.attr("src") ??
     ""
   ).trim();
+}
+
+function pickSrcsetUrl(srcset: string): string | undefined {
+  const first = srcset
+    .split(",")
+    .map((candidate) => candidate.trim().split(/\s+/)[0])
+    .find((candidate) => candidate);
+  return first || undefined;
 }
 
 function absoluteUrl(raw: string): string {
