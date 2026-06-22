@@ -30,6 +30,7 @@ import { ReadComicsOnlineRuInterceptor } from "./interceptors";
 import type { PageMetadata } from "./model";
 
 const BASE_URL = "https://readcomicsonline.ru";
+const FALLBACK_IMAGE_URL = `${BASE_URL}/favicon.ico`;
 
 type ReadComicsOnlineRuImplementation = Extension &
   SearchResultsProviding &
@@ -87,7 +88,7 @@ export class ReadComicsOnlineRuExtension implements ReadComicsOnlineRuImplementa
   async getMangaDetails(mangaId: string): Promise<SourceManga> {
     const $ = await this.fetchCheerio({ url: `${BASE_URL}/comic/${mangaId}`, method: "GET" });
     const title = $("h1").first().text().trim() || mangaId;
-    const thumbnailUrl = absoluteUrl(
+    const thumbnailUrl = imageUrl(
       $('img.object-cover, img[class*="object-cover"]').last().attr("src") ?? "",
     );
     const synopsis =
@@ -160,7 +161,8 @@ export class ReadComicsOnlineRuExtension implements ReadComicsOnlineRuImplementa
     const pages: string[] = [];
     $("#reader-all img[src], #reader-all img[data-src]").each((_, element) => {
       const raw = ($(element).attr("src") ?? $(element).attr("data-src") ?? "").trim();
-      if (raw) pages.push(absoluteUrl(raw));
+      const pageUrl = absoluteUrl(raw);
+      if (isValidHttpUrl(pageUrl)) pages.push(pageUrl);
     });
     return { id: chapter.chapterId, mangaId: chapter.sourceManga.mangaId, pages };
   }
@@ -221,7 +223,9 @@ function parseCatalogueItems($: CheerioAPI): CatalogueParseResult {
       type: "simpleCarouselItem",
       mangaId,
       title,
-      imageUrl: absoluteUrl(card.find("img").first().attr("src") ?? ""),
+      imageUrl: imageUrl(
+        card.find("img").first().attr("src") ?? card.find("img").first().attr("data-src") ?? "",
+      ),
     });
   });
 
@@ -244,10 +248,26 @@ function detailValues($: CheerioAPI, label: string): string[] {
 }
 
 function absoluteUrl(raw: string): string {
-  if (!raw) return "";
-  if (raw.startsWith("//")) return `https:${raw}`;
-  if (raw.startsWith("/")) return `${BASE_URL}${raw}`;
-  return raw;
+  const trimmed = raw.trim();
+  if (!trimmed) return "";
+  if (trimmed.startsWith("//")) return `https:${trimmed}`;
+  if (/^https?:\/\//i.test(trimmed)) return trimmed;
+  if (trimmed.startsWith("/")) return `${BASE_URL}${trimmed}`;
+  return `${BASE_URL}/${trimmed}`;
+}
+
+function imageUrl(raw: string): string {
+  const resolved = absoluteUrl(raw);
+  return isValidHttpUrl(resolved) ? resolved : FALLBACK_IMAGE_URL;
+}
+
+function isValidHttpUrl(value: string): boolean {
+  try {
+    const url = new URL(value);
+    return url.protocol === "http:" || url.protocol === "https:";
+  } catch {
+    return false;
+  }
 }
 
 function mangaIdFromRuHref(href: string): string {
