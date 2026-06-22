@@ -181,6 +181,7 @@ export class ReadComicsOnlineRuExtension implements ReadComicsOnlineRuImplementa
       },
     );
     pages.push(...parseScriptPageUrls($.html(), chapter.sourceManga.mangaId, chapter.chapterId));
+    pages.push(...parseRawImageUrls($.html(), chapter.sourceManga.mangaId, chapter.chapterId));
     const uniquePages = [...new Set(pages)];
     if (!uniquePages.length) throw new Error("No readable chapter pages found");
     return { id: chapter.chapterId, mangaId: chapter.sourceManga.mangaId, pages: uniquePages };
@@ -307,16 +308,50 @@ function parseScriptPageUrls(html: string, mangaId: string, chapterId: string): 
   const pages: string[] = [];
   const chapterSlug = chapterId.replace(/^\/+/, "").split("/")[0] ?? "";
   const pageScript = html.match(/var\s+pages\s*=\s*(\[[\s\S]*?\])\s*;/)?.[1] ?? "";
-  for (const match of pageScript.matchAll(/"image"\s*:\s*"([^"]+)"/g)) {
+  for (const match of pageScript.matchAll(/["']image["']\s*:\s*["']([^"']+)["']/g)) {
     const rawImage = match[1]?.trim();
     if (!rawImage) continue;
-    const image = rawImage.endsWith(".jpg") ? rawImage : `${rawImage}.jpg`;
+    const image = /\.(?:jpe?g|png|webp)(?:\?|$)/i.test(rawImage) ? rawImage : `${rawImage}.jpg`;
     const pageUrl = /^https?:\/\//i.test(image)
       ? image
       : `${BASE_URL}/uploads/manga/${mangaId}/chapters/${chapterSlug}/${image}`;
     if (isValidHttpUrl(pageUrl)) pages.push(pageUrl);
   }
   return pages;
+}
+
+function parseRawImageUrls(html: string, mangaId: string, chapterId: string): string[] {
+  const pages: string[] = [];
+  const chapterSlug = chapterId.replace(/^\/+/, "").split("/")[0] ?? "";
+  const decodedHtml = html.replace(/\\\//g, "/").replace(/&amp;/g, "&");
+
+  for (const match of decodedHtml.matchAll(
+    /(?:data-src|data-original|data-lazy-src|src|srcset)\s*=\s*["']([^"']+)["']/gi,
+  )) {
+    const raw = pickSrcsetUrl(match[1] ?? "") ?? match[1] ?? "";
+    const pageUrl = absoluteUrl(raw);
+    if (isLikelyPageImage(pageUrl, mangaId, chapterSlug)) pages.push(pageUrl);
+  }
+
+  for (const match of decodedHtml.matchAll(
+    /https?:\/\/[^\s"'<>]+\/(?:uploads\/manga\/[^\s"'<>]+|[^\s"'<>]+\.(?:jpe?g|png|webp)(?:\?[^\s"'<>]*)?)/gi,
+  )) {
+    const pageUrl = match[0] ?? "";
+    if (isLikelyPageImage(pageUrl, mangaId, chapterSlug)) pages.push(pageUrl);
+  }
+
+  return pages;
+}
+
+function isLikelyPageImage(value: string, mangaId: string, chapterSlug: string): boolean {
+  if (!isValidHttpUrl(value)) return false;
+  if (!/\.(?:jpe?g|png|webp)(?:\?|$)/i.test(value)) return false;
+  if (value.includes("/cover/") || value.includes("/static/icon")) return false;
+  return (
+    value.includes(`/uploads/manga/${mangaId}/chapters/${chapterSlug}/`) ||
+    value.includes(`/uploads/manga/${mangaId}/chapters/`) ||
+    value.includes("/chapters/")
+  );
 }
 
 function isValidHttpUrl(value: string): boolean {
