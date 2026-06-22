@@ -55,13 +55,29 @@ export class ReadComicsOnlineRuExtension implements ReadComicsOnlineRuImplementa
   }
 
   async getDiscoverSections(): Promise<DiscoverSection[]> {
-    return [{ id: "catalogue", title: "Catalogue", type: DiscoverSectionType.simpleCarousel }];
+    return [
+      {
+        id: "hot-comics",
+        title: "Hot Comics",
+        subtitle: "Trending on readcomicsonline.ru",
+        type: DiscoverSectionType.prominentCarousel,
+      },
+      {
+        id: "latest-releases",
+        title: "Latest Releases",
+        subtitle: "Newest chapter releases",
+        type: DiscoverSectionType.chapterUpdates,
+      },
+      { id: "catalogue", title: "All Comics A–Z", type: DiscoverSectionType.simpleCarousel },
+    ];
   }
 
   async getDiscoverSectionItems(
     section: DiscoverSection,
     metadata: PageMetadata | undefined,
   ): Promise<PagedResults<DiscoverSectionItem>> {
+    if (section.id === "hot-comics") return this.getHotComicsSectionItems();
+    if (section.id === "latest-releases") return this.getLatestReleaseSectionItems(metadata);
     if (section.id !== "catalogue") return { items: [] };
     return this.getCatalogueSectionItems(metadata);
   }
@@ -221,6 +237,23 @@ export class ReadComicsOnlineRuExtension implements ReadComicsOnlineRuImplementa
     return { items: parsed.items, metadata: parsed.hasNextPage ? { page: page + 1 } : undefined };
   }
 
+  private async getHotComicsSectionItems(): Promise<PagedResults<DiscoverSectionItem>> {
+    const $ = await this.fetchCheerio({ url: BASE_URL, method: "GET" });
+    return { items: parseHotComicsItems($) };
+  }
+
+  private async getLatestReleaseSectionItems(
+    metadata?: PageMetadata,
+  ): Promise<PagedResults<DiscoverSectionItem>> {
+    const page = metadata?.page ?? 1;
+    const $ = await this.fetchCheerio({
+      url: `${BASE_URL}/latest-release?page=${page}`,
+      method: "GET",
+    });
+    const items = parseLatestReleaseItems($);
+    return { items, metadata: items.length ? { page: page + 1 } : undefined };
+  }
+
   private async fetchCheerio(request: Request): Promise<CheerioAPI> {
     const [response, data] = await Application.scheduleRequest(request);
     if (response.status === 404) throw new Error("Content not found");
@@ -239,6 +272,8 @@ interface SimpleCatalogueItem {
   imageUrl: string;
   title: string;
 }
+
+type MangaCarouselType = "featuredCarouselItem" | "simpleCarouselItem" | "prominentCarouselItem";
 
 function parseCatalogueItems($: CheerioAPI): CatalogueParseResult {
   const items: SimpleCatalogueItem[] = [];
@@ -263,6 +298,127 @@ function parseCatalogueItems($: CheerioAPI): CatalogueParseResult {
       return !isNaN(page) && page > currentPage;
     }).length > 0;
   return { items, hasNextPage };
+}
+
+function parseHotComicsItems($: CheerioAPI): DiscoverSectionItem[] {
+  const heading = $("h1, h2, h3, h4")
+    .filter((_, element) => /hot\s+comics/i.test($(element).text()))
+    .first();
+  const scoped = heading.length
+    ? heading.closest("section, main > div, div[class*='container'], div[class*='space-y']")
+    : $();
+  const items = parseMangaAnchors(
+    $,
+    scoped.length ? scoped : $("main, body").first(),
+    "prominentCarouselItem",
+  );
+  return items.length
+    ? items
+    : parseMangaAnchors($, $("main, body").first(), "prominentCarouselItem").slice(0, 20);
+}
+
+function parseLatestReleaseItems($: CheerioAPI): DiscoverSectionItem[] {
+  const updates: DiscoverSectionItem[] = [];
+  const seen = new Set<string>();
+
+  $('a[href*="/comic/"]').each((_, element) => {
+    const anchor = $(element);
+    const href = anchor.attr("href") ?? "";
+    const mangaId = mangaIdFromRuHref(href);
+    const chapterId = chapterIdFromRuHref(href);
+    if (!mangaId || !chapterId) return;
+    const key = `${mangaId}:${chapterId}`;
+    if (seen.has(key)) return;
+    seen.add(key);
+
+    const container = anchor.closest(
+      "article, li, div[class*='space-y'], div[class*='grid'], div[class*='flex']",
+    );
+    const text = compactWhitespace(container.text() || anchor.text());
+    const title = comicTitleFromText(text, anchor.text().trim(), mangaId);
+    const subtitle = chapterTitleFromText(text, chapterId);
+    updates.push({
+      type: "chapterUpdatesCarouselItem",
+      mangaId,
+      chapterId,
+      title,
+      subtitle,
+      imageUrl: imageUrl(pickImageAttr(container.find("img").first()), coverUrlForManga(mangaId)),
+    });
+  });
+
+  return updates;
+}
+
+function parseMangaAnchors(
+  $: CheerioAPI,
+  root: cheerio.Cheerio<AnyNode>,
+  type: MangaCarouselType,
+): DiscoverSectionItem[] {
+  const items: DiscoverSectionItem[] = [];
+  const seen = new Set<string>();
+
+  root.find('a[href*="/comic/"]').each((_, element) => {
+    const anchor = $(element);
+    const href = anchor.attr("href") ?? "";
+    if (chapterIdFromRuHref(href)) return;
+    const mangaId = mangaIdFromRuHref(href);
+    if (!mangaId || seen.has(mangaId)) return;
+    seen.add(mangaId);
+
+    const container = anchor.closest(
+      "article, li, div[class*='space-y'], div[class*='grid'], div[class*='flex']",
+    );
+    const title = comicTitleFromText(
+      compactWhitespace(container.text() || anchor.text()),
+      anchor.text().trim() || anchor.attr("title") || "",
+      mangaId,
+    );
+    items.push({
+      type,
+      mangaId,
+      title,
+      imageUrl: imageUrl(pickImageAttr(container.find("img").first()), coverUrlForManga(mangaId)),
+    });
+  });
+
+  return items;
+}
+
+function chapterIdFromRuHref(href: string): string {
+  return href
+    .replace(/^https?:\/\/readcomicsonline\.ru\/comic\/[^/]+/i, "")
+    .replace(/^\/comic\/[^/]+/i, "")
+    .trim();
+}
+
+function compactWhitespace(value: string): string {
+  return value.replace(/\s+/g, " ").trim();
+}
+
+function titleFromMangaId(mangaId: string): string {
+  return mangaId
+    .split("-")
+    .filter((part) => part)
+    .map((part) => part[0]?.toUpperCase() + part.slice(1))
+    .join(" ");
+}
+
+function comicTitleFromText(text: string, anchorText: string, mangaId: string): string {
+  const cleaned = compactWhitespace(anchorText || text)
+    .replace(/#\s*\d+(?:\.\d+)?\b.*$/i, "")
+    .replace(/\bchapter\s+\d+(?:\.\d+)?\b.*$/i, "")
+    .replace(/\bissue\s+\d+(?:\.\d+)?\b.*$/i, "")
+    .trim();
+  return cleaned || titleFromMangaId(mangaId);
+}
+
+function chapterTitleFromText(text: string, chapterId: string): string {
+  const issue = text.match(/#\s*\d+(?:\.\d+)?\b[^|]*/i)?.[0];
+  if (issue) return compactWhitespace(issue);
+  const chapter = text.match(/\b(?:chapter|issue)\s+\d+(?:\.\d+)?\b[^|]*/i)?.[0];
+  if (chapter) return compactWhitespace(chapter);
+  return chapterId.replace(/^\//, "").replace(/-/g, " ");
 }
 
 function detailValues($: CheerioAPI, label: string): string[] {
@@ -506,10 +662,14 @@ function isValidHttpUrl(value: string): boolean {
 }
 
 function mangaIdFromRuHref(href: string): string {
-  return href
-    .replace(/^https?:\/\/readcomicsonline\.ru\/comic\//, "")
-    .replace(/^\/comic\//, "")
-    .trim();
+  return (
+    href
+      .replace(/^https?:\/\/readcomicsonline\.ru\/comic\//i, "")
+      .replace(/^\/comic\//i, "")
+      .split(/[?#]/)[0]
+      ?.split("/")[0]
+      ?.trim() ?? ""
+  );
 }
 
 function tagFromTitle(title: string) {
