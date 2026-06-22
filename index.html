@@ -4,7 +4,7 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <meta name="color-scheme" content="dark light" />
-    <title>Read Comics Online for Paperback</title>
+    <title>Lucas Paperback Extensions</title>
     <style>
       :root {
         color-scheme: dark;
@@ -37,7 +37,7 @@
       }
 
       main {
-        width: min(100%, 720px);
+        width: min(100%, 820px);
         padding: clamp(24px, 5vw, 48px);
         border: 1px solid var(--border);
         border-radius: 28px;
@@ -62,17 +62,45 @@
 
       .lede {
         margin: 20px 0 0;
-        max-width: 58ch;
+        max-width: 62ch;
         color: var(--muted);
         font-size: 18px;
         line-height: 1.55;
       }
 
-      .actions {
+      .actions,
+      .source-list {
         display: flex;
         flex-wrap: wrap;
         gap: 12px;
+      }
+
+      .actions {
         margin-top: 32px;
+      }
+
+      .source-list {
+        margin-top: 24px;
+      }
+
+      .source-card {
+        flex: 1 1 230px;
+        padding: 18px;
+        border: 1px solid var(--border);
+        border-radius: 18px;
+        background: #111118;
+      }
+
+      .source-card h2 {
+        margin: 0 0 8px;
+        font-size: 18px;
+      }
+
+      .source-card p {
+        margin: 0 0 14px;
+        color: var(--muted);
+        font-size: 14px;
+        line-height: 1.45;
       }
 
       a.button {
@@ -86,6 +114,10 @@
         text-decoration: none;
         font-weight: 700;
         background: var(--accent);
+      }
+
+      .source-card a.button {
+        width: 100%;
       }
 
       a.button:hover {
@@ -125,24 +157,53 @@
   </head>
   <body>
     <main>
-      <p class="eyebrow">Paperback extension</p>
-      <h1>Read Comics Online</h1>
+      <p class="eyebrow">Paperback extension repo</p>
+      <h1>Lucas Paperback Extensions</h1>
       <p class="lede">
-        Install Lucas Synnott's Read Comics Online source for Paperback. Tap the button on
-        your iPhone or iPad with Paperback installed.
+        Install one source directly, install all three, or add the repo to Paperback. Tap from an
+        iPhone or iPad with Paperback installed.
       </p>
 
       <div class="actions">
         <a
           class="button"
-          href="paperback://installExtensions?data=W1siUmVhZENvbWljc09ubGluZSIsImh0dHBzOi8vbHVjYXNzeW5ub3R0LmdpdGh1Yi5pby9wYXBlcmJhY2stZXh0ZW5zaW9ucy8wLjkvc3RhYmxlIl1d"
-        >Install this extension</a>
+          href="paperback://installExtensions?data=W1siUmVhZENvbWljc09ubGluZSIsImh0dHBzOi8vbHVjYXNzeW5ub3R0LmdpdGh1Yi5pby9wYXBlcmJhY2stZXh0ZW5zaW9ucy8wLjkvc3RhYmxlIl0sWyJSZWFkQ29taWNzT25saW5lUnUiLCJodHRwczovL2x1Y2Fzc3lubm90dC5naXRodWIuaW8vcGFwZXJiYWNrLWV4dGVuc2lvbnMvMC45L3N0YWJsZSJdLFsiQmF0Y2F2ZSIsImh0dHBzOi8vbHVjYXNzeW5ub3R0LmdpdGh1Yi5pby9wYXBlcmJhY2stZXh0ZW5zaW9ucy8wLjkvc3RhYmxlIl1d"
+        >Install all 3 sources</a>
         <a
           class="button secondary"
-          href="paperback://addRepo?displayName=Read%20Comics%20Online&url=https%3A%2F%2Flucassynnott.github.io%2Fpaperback-extensions%2F0.9%2Fstable"
+          href="paperback://addRepo?displayName=Lucas%20Paperback%20Extensions&url=https%3A%2F%2Flucassynnott.github.io%2Fpaperback-extensions%2F0.9%2Fstable"
         >Add repo instead</a>
         <a class="button secondary" href="./0.9/stable/">View repository</a>
       </div>
+
+      <section class="source-list" aria-label="Individual source install options">
+        <article class="source-card">
+          <h2>Read Comics Online</h2>
+          <p>Primary source for readcomiconline.li.</p>
+          <a
+            class="button secondary"
+            href="paperback://installExtensions?data=W1siUmVhZENvbWljc09ubGluZSIsImh0dHBzOi8vbHVjYXNzeW5ub3R0LmdpdGh1Yi5pby9wYXBlcmJhY2stZXh0ZW5zaW9ucy8wLjkvc3RhYmxlIl1d"
+          >Install source</a>
+        </article>
+
+        <article class="source-card">
+          <h2>Read Comics Online RU</h2>
+          <p>Cloudflare-capable source for readcomicsonline.ru.</p>
+          <a
+            class="button secondary"
+            href="paperback://installExtensions?data=W1siUmVhZENvbWljc09ubGluZVJ1IiwiaHR0cHM6Ly9sdWNhc3N5bm5vdHQuZ2l0aHViLmlvL3BhcGVyYmFjay1leHRlbnNpb25zLzAuOS9zdGFibGUiXV0="
+          >Install source</a>
+        </article>
+
+        <article class="source-card">
+          <h2>Batcave</h2>
+          <p>Cloudflare-capable source for batcave.biz.</p>
+          <a
+            class="button secondary"
+            href="paperback://installExtensions?data=W1siQmF0Y2F2ZSIsImh0dHBzOi8vbHVjYXNzeW5ub3R0LmdpdGh1Yi5pby9wYXBlcmJhY2stZXh0ZW5zaW9ucy8wLjkvc3RhYmxlIl1d"
+          >Install source</a>
+        </article>
+      </section>
 
       <div class="manual">
         <strong>Manual repo URL</strong>
