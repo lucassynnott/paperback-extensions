@@ -172,6 +172,14 @@ export class ReadComicsOnlineRuExtension implements ReadComicsOnlineRuImplementa
       const pageUrl = absoluteUrl(raw);
       if (isValidHttpUrl(pageUrl)) pages.push(pageUrl);
     });
+    $(
+      '#reader-all img, #all img, .page-chapter img, img.single-page, img[class*="chapter"], img[class*="page"], img[class*="lazy"]',
+    ).each((_, element) => {
+      for (const raw of pickAllImageAttrs($(element))) {
+        const pageUrl = absoluteUrl(raw);
+        if (isValidReaderImageUrl(pageUrl)) pages.push(pageUrl);
+      }
+    });
     $("#reader-all source[srcset], #reader-all img[srcset], #reader-all img[data-srcset]").each(
       (_, element) => {
         const raw =
@@ -182,6 +190,7 @@ export class ReadComicsOnlineRuExtension implements ReadComicsOnlineRuImplementa
     );
     pages.push(...parseScriptPageUrls($.html(), chapter.sourceManga.mangaId, chapter.chapterId));
     pages.push(...parseRawImageUrls($.html(), chapter.sourceManga.mangaId, chapter.chapterId));
+    pages.push(...parseLooseImageUrls($.html()));
     const uniquePages = [...new Set(pages)];
     if (!uniquePages.length) throw new Error("No readable chapter pages found");
     return { id: chapter.chapterId, mangaId: chapter.sourceManga.mangaId, pages: uniquePages };
@@ -276,6 +285,29 @@ function pickImageAttr(image: cheerio.Cheerio<AnyNode>): string {
   ).trim();
 }
 
+function pickAllImageAttrs(image: cheerio.Cheerio<AnyNode>): string[] {
+  const attrs = [
+    "data-src",
+    "data-original",
+    "data-lazy-src",
+    "data-url",
+    "data-image",
+    "data-full",
+    "data-full-size",
+    "data-cfsrc",
+    "srcset",
+    "data-srcset",
+    "src",
+  ];
+  return attrs
+    .flatMap((attr) => {
+      const value = image.attr(attr) ?? "";
+      return attr.includes("srcset") ? [pickSrcsetUrl(value) ?? ""] : [value];
+    })
+    .map((value) => value.trim())
+    .filter((value) => value);
+}
+
 function pickSrcsetUrl(srcset: string): string | undefined {
   const first = srcset
     .split(",")
@@ -343,10 +375,40 @@ function parseRawImageUrls(html: string, mangaId: string, chapterId: string): st
   return pages;
 }
 
-function isLikelyPageImage(value: string, mangaId: string, chapterSlug: string): boolean {
+function parseLooseImageUrls(html: string): string[] {
+  const pages: string[] = [];
+  const decodedHtml = html.replace(/\\\//g, "/").replace(/&amp;/g, "&");
+  for (const match of decodedHtml.matchAll(
+    /(?:data-src|data-original|data-lazy-src|data-url|data-image|data-full|data-full-size|data-cfsrc|src|srcset)\s*=\s*["']([^"']+)["']/gi,
+  )) {
+    const raw = pickSrcsetUrl(match[1] ?? "") ?? match[1] ?? "";
+    const pageUrl = absoluteUrl(raw);
+    if (isValidReaderImageUrl(pageUrl)) pages.push(pageUrl);
+  }
+  return pages;
+}
+
+function isValidReaderImageUrl(value: string): boolean {
   if (!isValidHttpUrl(value)) return false;
   if (!/\.(?:jpe?g|png|webp)(?:\?|$)/i.test(value)) return false;
-  if (value.includes("/cover/") || value.includes("/static/icon")) return false;
+  const lowered = value.toLowerCase();
+  return ![
+    "/cover/",
+    "/static/icon",
+    "favicon",
+    "logo",
+    "avatar",
+    "placeholder",
+    "no-image",
+    "banner",
+    "ads",
+    "doubleclick",
+    "google",
+  ].some((blocked) => lowered.includes(blocked));
+}
+
+function isLikelyPageImage(value: string, mangaId: string, chapterSlug: string): boolean {
+  if (!isValidReaderImageUrl(value)) return false;
   return (
     value.includes(`/uploads/manga/${mangaId}/chapters/${chapterSlug}/`) ||
     value.includes(`/uploads/manga/${mangaId}/chapters/`) ||

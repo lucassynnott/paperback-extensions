@@ -5,7 +5,7 @@ import { ContentRating, SourceIntents, type ExtensionInfo } from "@paperback/typ
 export default {
   name: "Read Comics Online RU",
   description: "Paperback extension for readcomicsonline.ru.",
-  version: "1.0.9",
+  version: "1.0.10",
   icon: "icon.png",
   language: "en",
   contentRating: ContentRating.EVERYONE,
