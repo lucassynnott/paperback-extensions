@@ -192,7 +192,7 @@ export class ReadComicsOnlineRuExtension implements ReadComicsOnlineRuImplementa
     pages.push(...parseRawImageUrls($.html(), chapter.sourceManga.mangaId, chapter.chapterId));
     pages.push(...parseLooseImageUrls($.html()));
     const uniquePages = [...new Set(pages)];
-    if (!uniquePages.length) throw new Error("No readable chapter pages found");
+    if (!uniquePages.length) throw new Error(chapterDebugMessage($, chapter));
     return { id: chapter.chapterId, mangaId: chapter.sourceManga.mangaId, pages: uniquePages };
   }
 
@@ -414,6 +414,88 @@ function isLikelyPageImage(value: string, mangaId: string, chapterSlug: string):
     value.includes(`/uploads/manga/${mangaId}/chapters/`) ||
     value.includes("/chapters/")
   );
+}
+
+function chapterDebugMessage($: CheerioAPI, chapter: Chapter): string {
+  const html = $.html();
+  const bodyText = $("body").text().replace(/\s+/g, " ").trim();
+  const imageSamples: string[] = [];
+  $("img, source").each((_, element) => {
+    if (imageSamples.length >= 8) return;
+    const node = $(element);
+    const attrs = [
+      "id",
+      "class",
+      "src",
+      "data-src",
+      "data-original",
+      "data-lazy-src",
+      "data-url",
+      "data-image",
+      "data-full",
+      "data-full-size",
+      "data-cfsrc",
+      "srcset",
+      "data-srcset",
+    ]
+      .map((name) => attrDebug(node, name))
+      .filter((value) => value)
+      .join(",");
+    imageSamples.push(attrs || "no-attrs");
+  });
+
+  const scriptSamples: string[] = [];
+  $("script").each((_, element) => {
+    if (scriptSamples.length >= 5) return;
+    const node = $(element);
+    const src = node.attr("src");
+    const text = node.text();
+    const markers = [
+      src ? `src=${compact(src, 90)}` : "inline",
+      text.includes("reader") ? "reader" : "",
+      text.includes("pages") ? "pages" : "",
+      text.includes("uploads/manga") ? "uploads" : "",
+      text.includes("chapter") ? "chapter" : "",
+    ]
+      .filter((value) => value)
+      .join("/");
+    scriptSamples.push(markers || `inline:${compact(text, 90)}`);
+  });
+
+  return [
+    "RCO-RU DEBUG 1.0.11: no readable chapter pages",
+    `manga=${compact(chapter.sourceManga.mangaId, 80)}`,
+    `chapter=${compact(chapter.chapterId, 80)}`,
+    `html=${html.length}`,
+    `title=${compact($("title").text(), 100)}`,
+    `h1=${compact($("h1").first().text(), 80)}`,
+    `body=${compact(bodyText, 160)}`,
+    `counts(reader-all-img=${$("#reader-all img").length},all-img=${$("#all img").length},page-chapter-img=${$(".page-chapter img").length},img=${$("img").length},source=${$("source").length},script=${$("script").length},uploads=${countMatches(html, "uploads/manga")},pagesVar=${countRegex(html, /var\s+pages\s*=/g)},cf=${cloudflareSignal(html) ? 1 : 0})`,
+    `imgs=[${imageSamples.join(" | ") || "none"}]`,
+    `scripts=[${scriptSamples.join(" | ") || "none"}]`,
+  ].join("; ");
+}
+
+function attrDebug(node: cheerio.Cheerio<AnyNode>, name: string): string {
+  const value = node.attr(name);
+  return value ? `${name}=${compact(value, 90)}` : "";
+}
+
+function compact(value: string, maxLength: number): string {
+  const cleaned = value.replace(/\s+/g, " ").trim();
+  return cleaned.length > maxLength ? `${cleaned.slice(0, maxLength - 1)}…` : cleaned;
+}
+
+function countMatches(value: string, needle: string): number {
+  return value.split(needle).length - 1;
+}
+
+function countRegex(value: string, regex: RegExp): number {
+  return [...value.matchAll(regex)].length;
+}
+
+function cloudflareSignal(html: string): boolean {
+  return /cloudflare|cf-mitigated|just a moment|checking your browser|are you human/i.test(html);
 }
 
 function isValidHttpUrl(value: string): boolean {
