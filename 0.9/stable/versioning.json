@@ -1,5 +1,5 @@
 {
-  "buildTime": "2026-06-22T10:10:37.049Z",
+  "buildTime": "2026-07-18T01:22:00.455Z",
   "builtWith": {
     "toolchain": "1.0.0-alpha.74",
     "types": "1.0.0-alpha.74"
@@ -64,7 +64,7 @@
     {
       "name": "Read Comics Online RU",
       "description": "Paperback extension for readcomicsonline.ru.",
-      "version": "1.0.13",
+      "version": "1.0.14",
       "icon": "icon.png",
       "language": "en",
       "contentRating": "SAFE",
