@@ -10,10 +10,11 @@
     "format:check": "oxfmt --check .",
     "tsc": "tsc",
     "bundle": "paperback-cli bundle",
+    "test:cloudflare": "node --experimental-strip-types --test tests/readcomicsonline-ru-cloudflare.test.mjs",
     "serve": "paperback-cli serve",
     "logcat": "paperback-cli logcat",
     "dev": "paperback-cli serve --watch",
-    "test": "npm run tsc && npm run lint:check && npm run format:check && npm run bundle",
+    "test": "npm run test:cloudflare && npm run tsc && npm run lint:check && npm run format:check && npm run bundle",
     "prepare": "husky"
   },
   "dependencies": {

@@ -27,10 +27,13 @@ import * as cheerio from "cheerio";
 import type { CheerioAPI } from "cheerio";
 import type { AnyNode } from "domhandler";
 
-import { ReadComicsOnlineRuInterceptor } from "./interceptors";
+import {
+  applyCloudflareCookieUpdate,
+  BASE_URL,
+  ReadComicsOnlineRuInterceptor,
+} from "./interceptors";
 import type { PageMetadata } from "./model";
 
-const BASE_URL = "https://readcomicsonline.ru";
 const FALLBACK_IMAGE_URL =
   "https://lucassynnott.github.io/paperback-extensions/0.9/stable/ReadComicsOnlineRu/static/icon.png";
 
@@ -217,12 +220,7 @@ export class ReadComicsOnlineRuExtension implements ReadComicsOnlineRuImplementa
   }
 
   async saveCloudflareBypassCookies(cookies: Cookie[]): Promise<void> {
-    for (const cookie of this.cookieStorageInterceptor.cookies)
-      this.cookieStorageInterceptor.deleteCookie(cookie);
-    for (const cookie of cookies) {
-      if (cookie.expires && cookie.expires.getTime() <= Date.now()) continue;
-      this.cookieStorageInterceptor.setCookie(cookie);
-    }
+    applyCloudflareCookieUpdate(this.cookieStorageInterceptor, cookies);
   }
 
   private async getCatalogueSectionItems(
