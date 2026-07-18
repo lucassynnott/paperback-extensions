@@ -173,12 +173,43 @@ describe("ReadComicsOnlineRu Cloudflare handling", () => {
 
     const solved = { ...stale, value: "fresh" };
     applyCloudflareCookieUpdate(store, [solved], now);
-    assert.deepEqual([...jar.keys()], ["cf_clearance"]);
+    assert.deepEqual([...jar.keys()], ["cf_clearance", "session"]);
     assert.equal(jar.get("cf_clearance")?.value, "fresh");
 
     const deletion = { ...solved, value: "", expires: new Date("2020-01-01T00:00:00Z") };
     applyCloudflareCookieUpdate(store, [deletion], now);
     assert.equal(jar.has("cf_clearance"), false);
+    assert.equal(jar.get("session")?.value, "old");
+  });
+
+  it("applies mixed cookie updates without deleting unrelated or www-scoped cookies", () => {
+    const now = new Date("2026-01-01T00:00:00Z").getTime();
+    const root = {
+      name: "cf_clearance",
+      value: "stale",
+      domain: ".readcomicsonline.ru",
+      path: "/",
+    };
+    const www = { ...root, value: "www-session", domain: "www.readcomicsonline.ru" };
+    const unrelated = { name: "session", value: "keep", domain: ".readcomicsonline.ru", path: "/" };
+    const store = {
+      cookies: [root, www, unrelated],
+    };
+
+    applyCloudflareCookieUpdate(
+      store,
+      [
+        { ...root, value: "", expires: new Date("2020-01-01T00:00:00Z") },
+        { name: "new_session", value: "fresh", domain: ".readcomicsonline.ru", path: "/" },
+      ],
+      now,
+    );
+
+    assert.deepEqual(store.cookies, [
+      www,
+      unrelated,
+      { name: "new_session", value: "fresh", domain: ".readcomicsonline.ru", path: "/" },
+    ]);
   });
 
   it("persists deletion cookies through Paperback's real state-backed cookie store", () => {

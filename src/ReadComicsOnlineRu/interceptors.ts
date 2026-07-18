@@ -82,7 +82,7 @@ interface CookieStore {
 }
 
 function cookieIdentity(cookie: Cookie): string {
-  const domain = cookie.domain.replace(/^(?:www)?\.?/i, "").toLowerCase();
+  const domain = cookie.domain.replace(/^\./, "").toLowerCase();
   const path = cookie.path?.startsWith("/") ? cookie.path : `/${cookie.path ?? ""}`;
   return `${cookie.name}-${domain}-${path}`;
 }
@@ -94,13 +94,13 @@ export function applyCloudflareCookieUpdate(
 ): void {
   if (!cookies.length) return;
 
-  const usableCookies = usableCloudflareCookies(cookies, now);
-  if (usableCookies.length) {
-    store.cookies = usableCookies;
-  } else {
-    const deletionKeys = new Set(cookies.map(cookieIdentity));
-    store.cookies = store.cookies.filter((cookie) => !deletionKeys.has(cookieIdentity(cookie)));
+  const mergedCookies = new Map(store.cookies.map((cookie) => [cookieIdentity(cookie), cookie]));
+  for (const cookie of cookies) {
+    const identity = cookieIdentity(cookie);
+    if (!cookie.expires || cookie.expires.getTime() > now) mergedCookies.set(identity, cookie);
+    else mergedCookies.delete(identity);
   }
+  store.cookies = [...mergedCookies.values()];
 }
 
 export class ReadComicsOnlineRuInterceptor extends PaperbackInterceptor {
