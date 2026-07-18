@@ -2,6 +2,8 @@
 
 Paperback extensions designed as templates to help developers get started quickly.
 
+**[Install these extensions in Paperback](https://lucassynnott.github.io/paperback-extensions/)**
+
 This includes the following:
 
 - Package config
@@ -33,7 +35,7 @@ Template that shows the functionality of tracking and collection management prov
 
 ## Installation
 
-To add these extensions to Paperback, it’s recommended to install the registry via the [installation page][registry-installation-page] on the Inkdex website. Alternatively, you can install just this repository by visiting [this webpage][repository-installation-page].
+Open the [Lucas Paperback Extensions installation page][repository-installation-page] and follow the prompt to add this repository to Paperback.
 
 ## Support Guidelines
 
@@ -43,8 +45,7 @@ Need help? Check out our [Support Guidelines][support-guidelines] in the [regist
 
 Want to contribute? Read the [Contributing Guidelines][contributing-guidelines] in the [registry repository][registry-repository] to get started.
 
-[registry-installation-page]: https://inkdex.github.io/installation
-[repository-installation-page]: https://inkdex.github.io/template-extensions/0.9/stable
+[repository-installation-page]: https://lucassynnott.github.io/paperback-extensions/
 [support-guidelines]: https://github.com/inkdex/extensions/blob/master/.github/SUPPORT.md
 [registry-repository]: https://github.com/inkdex/extensions
 [contributing-guidelines]: https://github.com/inkdex/extensions/blob/master/.github/CONTRIBUTING.md
