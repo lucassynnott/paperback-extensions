@@ -8,7 +8,9 @@ import {
   ReadComicsOnlineRuInterceptor,
   applyCloudflareCookieUpdate,
   createCloudflareResolutionRequest,
+  detectCloudflareBrowserUserAgent,
   isCloudflareChallenge,
+  setCloudflareBrowserUserAgent,
   usableCloudflareCookies,
 } from "../src/ReadComicsOnlineRu/interceptors.ts";
 
@@ -89,6 +91,34 @@ describe("ReadComicsOnlineRu Cloudflare handling", () => {
     assert.equal(resolution.headers?.["User-Agent"], DEFAULT_UA);
     assert.equal(resolution.headers?.Referer, `${BASE_URL}/`);
     assert.equal(resolution.headers?.["X-Requested-With"], undefined);
+  });
+
+  it("uses the actual Paperback WebView user agent for requests and challenge resolution", async () => {
+    const webViewUa = `${DEFAULT_UA} PaperbackWebView`;
+    setCloudflareBrowserUserAgent(webViewUa);
+    const interceptor = new ReadComicsOnlineRuInterceptor("test");
+
+    const request = await interceptor.interceptRequest({
+      url: `${BASE_URL}/comic-list`,
+      method: "GET",
+    });
+    const resolution = await createCloudflareResolutionRequest();
+
+    assert.equal(request.headers?.["User-Agent"], webViewUa);
+    assert.equal(resolution.headers?.["User-Agent"], webViewUa);
+  });
+
+  it("detects the user agent from Paperback's real challenge WebView", async () => {
+    const webViewUa = `${DEFAULT_UA} ChallengeWebView`;
+    let execution;
+    Application.executeInWebView = async (options) => {
+      execution = options;
+      return { result: webViewUa, storage: { cookies: [] } };
+    };
+
+    assert.equal(await detectCloudflareBrowserUserAgent(), webViewUa);
+    assert.equal(execution.source.baseUrl, `${BASE_URL}/`);
+    assert.match(execution.inject, /navigator\.userAgent/);
   });
 
   it("throws a CloudflareError with the clean resolution request", async () => {

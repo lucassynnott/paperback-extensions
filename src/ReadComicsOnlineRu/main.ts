@@ -30,7 +30,9 @@ import type { AnyNode } from "domhandler";
 import {
   applyCloudflareCookieUpdate,
   BASE_URL,
+  detectCloudflareBrowserUserAgent,
   ReadComicsOnlineRuInterceptor,
+  setCloudflareBrowserUserAgent,
 } from "./interceptors";
 import type { PageMetadata } from "./model";
 
@@ -51,6 +53,8 @@ export class ReadComicsOnlineRuExtension implements ReadComicsOnlineRuImplementa
   async initialise(): Promise<void> {
     this.requestManager.registerInterceptor();
     this.cookieStorageInterceptor.registerInterceptor();
+    const webViewUserAgent = await detectCloudflareBrowserUserAgent();
+    if (webViewUserAgent) setCloudflareBrowserUserAgent(webViewUserAgent);
   }
 
   async getSearchFilters(): Promise<SearchFilter[]> {

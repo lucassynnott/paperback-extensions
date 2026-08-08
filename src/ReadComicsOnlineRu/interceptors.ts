@@ -9,6 +9,30 @@ import {
 } from "@paperback/types";
 
 export const BASE_URL = "https://readcomicsonline.ru";
+let cloudflareBrowserUserAgent: string | undefined;
+
+export function setCloudflareBrowserUserAgent(userAgent: string): void {
+  const normalized = userAgent.trim();
+  cloudflareBrowserUserAgent = normalized || undefined;
+}
+
+export async function detectCloudflareBrowserUserAgent(): Promise<string | undefined> {
+  try {
+    const { result } = await Application.executeInWebView({
+      source: {
+        html: "<!doctype html><html><head></head><body></body></html>",
+        baseUrl: `${BASE_URL}/`,
+        loadCSS: false,
+        loadImages: false,
+      },
+      inject: "return navigator.userAgent;",
+      storage: { cookies: [] },
+    });
+    return typeof result === "string" && result.trim() ? result.trim() : undefined;
+  } catch {
+    return undefined;
+  }
+}
 
 const HTML_ACCEPT =
   "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,*/*;q=0.8";
@@ -42,7 +66,7 @@ async function createBrowserHeaders(
 
   return {
     ...headers,
-    "User-Agent": await Application.getDefaultUserAgent(),
+    "User-Agent": cloudflareBrowserUserAgent ?? (await Application.getDefaultUserAgent()),
     Accept: isReaderAsset(url) ? IMAGE_ACCEPT : HTML_ACCEPT,
     "Accept-Language": ACCEPT_LANGUAGE,
     Referer: `${BASE_URL}/`,
